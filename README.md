@@ -1,32 +1,17 @@
 # alnitak-events
-Event-driven messaging service for async workflows and integrations.
 
-**Language:** `Go`
-**Stack:** `Go, NATS JetStream, PostgreSQL optional, Redis optional.`
+Event storage and simulated webhook delivery service for Orion Platform V1.
 
-**Responsibilities:**
-```
-Consume domain events from NATS
-Store delivery attempts
-Deliver webhooks
-Retry failed webhook deliveries
-Move failed events to dead-letter
-Expose event delivery history API
-```
-**Entites:**
-```
-EventEnvelope
-WebhookEndpoint
-DeliveryAttempt
-RetryPolicy
-DeadLetterEvent
-```
-*topics:*
-```
-retry
-dead-letter
-idempotency
-at-least-once delivery
-event envelope
-correlation id
-```
+## Behavior
+
+- Subscribes to `orion.>` NATS subjects.
+- Stores canonical event envelopes.
+- Creates simulated webhook delivery attempts.
+- Dead-letters events after max failed attempts.
+
+## Endpoints
+
+- `GET /health`
+- `GET /metrics`
+- `GET /events`
+- `GET /deliveries`
