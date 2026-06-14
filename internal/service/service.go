@@ -16,8 +16,16 @@ type Service struct {
 	cfg   config.Config
 	log   *slog.Logger
 	db    *sql.DB
-	store *Store
+	store eventStore
 	nats  *nats.Conn
+}
+
+type eventStore interface {
+	SaveEvent(ctx context.Context, event EventEnvelope) (bool, error)
+	SaveAttempt(ctx context.Context, eventID, targetURL string, attempt int, status, message string) error
+	DeadLetter(ctx context.Context, eventID, reason string) error
+	Events(ctx context.Context) ([]EventRecord, error)
+	Deliveries(ctx context.Context) ([]DeliveryAttempt, error)
 }
 
 func New(cfg config.Config, log *slog.Logger) (*Service, error) {
@@ -61,8 +69,13 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 func (s *Service) HandleEvent(ctx context.Context, event EventEnvelope) error {
-	if err := s.store.SaveEvent(ctx, event); err != nil {
+	inserted, err := s.store.SaveEvent(ctx, event)
+	if err != nil {
 		return err
+	}
+	if !inserted {
+		s.log.Info("duplicate_event_skipped", "eventId", event.EventID)
+		return nil
 	}
 	targetURL := "simulated://default-webhook"
 	if raw, ok := event.Payload["webhookUrl"].(string); ok && raw != "" {

@@ -46,14 +46,21 @@ create table if not exists dead_letter_events (
 	return err
 }
 
-func (s *Store) SaveEvent(ctx context.Context, event EventEnvelope) error {
+func (s *Store) SaveEvent(ctx context.Context, event EventEnvelope) (bool, error) {
 	payload, _ := json.Marshal(event.Payload)
-	_, err := s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, `
 insert into event_records(event_id, event_type, source, occurred_at, correlation_id, payload)
 values ($1, $2, $3, $4, $5, $6)
 on conflict (event_id) do nothing`,
 		event.EventID, event.EventType, event.Source, event.OccurredAt, event.CorrelationID, string(payload))
-	return err
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return true, nil
+	}
+	return rows > 0, nil
 }
 
 func (s *Store) SaveAttempt(ctx context.Context, eventID, targetURL string, attempt int, status, message string) error {
